@@ -8,10 +8,14 @@ import {
   Minus,
   Plus,
   Trash2,
+  CreditCard,
+  MessageCircle,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { useState } from "react";
 
-// Product type definition
+// Types
 type Product = {
   id: number;
   name: string;
@@ -20,12 +24,42 @@ type Product = {
   description: string;
 };
 
-// Cart item type
 type CartItem = Product & {
   quantity: number;
 };
 
-// Sample products data with extended descriptions
+type ShippingMethod = {
+  id: string;
+  name: string;
+  price: number;
+  estimatedDays: string;
+};
+
+type PaymentMethod = {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+  installments: boolean;
+};
+
+type CheckoutStep =
+  | "cart"
+  | "details"
+  | "shipping"
+  | "payment"
+  | "confirmation";
+
+type CustomerDetails = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+};
+
+// Sample data
 const products: Product[] = [
   {
     id: 1,
@@ -34,7 +68,7 @@ const products: Product[] = [
     image:
       "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=800",
     description:
-      "Our essential white t-shirt is crafted from 100% organic cotton, providing unmatched comfort and breathability. Perfect for any casual occasion, this versatile piece features a classic crew neck, short sleeves, and a relaxed fit that flatters every body type. The premium cotton ensures durability while maintaining its softness wash after wash.",
+      "Our essential white t-shirt is crafted from 100% organic cotton, providing unmatched comfort and breathability.",
   },
   {
     id: 2,
@@ -42,8 +76,7 @@ const products: Product[] = [
     price: 34.99,
     image:
       "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&q=80&w=800",
-    description:
-      "Make a statement with our urban-inspired graphic tee. This black t-shirt features a unique, artist-designed print that captures modern street style. Made from a soft cotton blend, it offers both style and comfort. The durable screen-printed design ensures the artwork stays vibrant through multiple washes.",
+    description: "Urban style graphic t-shirt with modern design",
   },
   {
     id: 3,
@@ -51,26 +84,49 @@ const products: Product[] = [
     price: 39.99,
     image:
       "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&q=80&w=800",
-    description:
-      "Elevate your basics with our Navy Blue Premium t-shirt. This luxury essential is made from long-staple cotton, known for its exceptional softness and durability. The rich navy color is achieved through eco-friendly dyeing processes, and the tailored fit provides a polished look suitable for both casual and semi-formal occasions.",
+    description: "Premium quality navy blue t-shirt for everyday wear",
+  },
+];
+
+const shippingMethods: ShippingMethod[] = [
+  {
+    id: "express",
+    name: "Express Delivery",
+    price: 15.99,
+    estimatedDays: "1-2 business days",
   },
   {
-    id: 4,
-    name: "Vintage Washed Tee",
-    price: 32.99,
-    image:
-      "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&q=80&w=800",
-    description:
-      "Experience the perfect lived-in feel with our Vintage Washed Tee. Each shirt undergoes a special washing process to achieve that coveted broken-in softness from day one. The slightly faded look adds character, while the durable construction ensures this will become your new favorite tee.",
+    id: "standard",
+    name: "Standard Shipping",
+    price: 7.99,
+    estimatedDays: "3-5 business days",
   },
   {
-    id: 5,
-    name: "Striped Cotton Blend",
-    price: 36.99,
-    image:
-      "https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&q=80&w=800",
-    description:
-      "Our Striped Cotton Blend tee combines style with comfort. The classic stripe pattern is executed in premium threads on a soft cotton-modal blend fabric. This combination provides exceptional drape and a luxurious feel against the skin. The modern fit is neither too loose nor too tight, making it perfect for any casual setting.",
+    id: "economy",
+    name: "Economy Shipping",
+    price: 4.99,
+    estimatedDays: "5-7 business days",
+  },
+];
+
+const paymentMethods: PaymentMethod[] = [
+  {
+    id: "credit",
+    name: "Credit Card",
+    icon: <CreditCard className="h-6 w-6" />,
+    installments: true,
+  },
+  {
+    id: "pix",
+    name: "PIX",
+    icon: <CheckCircle2 className="h-6 w-6" />,
+    installments: false,
+  },
+  {
+    id: "boleto",
+    name: "Boleto",
+    icon: <AlertCircle className="h-6 w-6" />,
+    installments: false,
   },
 ];
 
@@ -78,8 +134,25 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>("cart");
+  const [selectedShipping, setSelectedShipping] = useState<string>("standard");
+  const [selectedPayment, setSelectedPayment] = useState<string>("credit");
+  const [installments, setInstallments] = useState<number>(1);
+  const [customerDetails, setCustomerDetails] = useState<CustomerDetails>({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    zipCode: "",
+  });
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<
+    { text: string; sender: "user" | "bot" }[]
+  >([{ text: "Olá! Como posso ajudar você hoje?", sender: "bot" }]);
 
+  // Cart functions
   const addToCart = (product: Product) => {
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
@@ -109,15 +182,415 @@ function App() {
     );
   };
 
-  const cartTotal = cartItems.reduce(
+  // Calculations
+  const subtotal = cartItems.reduce(
     (total, item) => total + item.price * item.quantity,
     0
   );
+
+  const shippingCost =
+    shippingMethods.find((method) => method.id === selectedShipping)?.price ||
+    0;
+  const total = subtotal + shippingCost;
 
   const cartItemCount = cartItems.reduce(
     (total, item) => total + item.quantity,
     0
   );
+
+  // Chat functions
+  const handleChatSubmit = (message: string) => {
+    setChatMessages((prev) => [...prev, { text: message, sender: "user" }]);
+
+    // Simple bot response - in a real app, this would be more sophisticated
+    setTimeout(() => {
+      const botResponse = {
+        text: `Obrigado pela sua mensagem! Um de nossos atendentes responderá em breve.`,
+        sender: "bot" as const,
+      };
+      setChatMessages((prev) => [...prev, botResponse]);
+    }, 1000);
+  };
+
+  // Checkout steps rendering
+  const renderCheckoutStep = () => {
+    switch (checkoutStep) {
+      case "details":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold">Dados Pessoais</h3>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Nome Completo
+                </label>
+                <input
+                  type="text"
+                  value={customerDetails.name}
+                  onChange={(e) =>
+                    setCustomerDetails({
+                      ...customerDetails,
+                      name: e.target.value,
+                    })
+                  }
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={customerDetails.email}
+                  onChange={(e) =>
+                    setCustomerDetails({
+                      ...customerDetails,
+                      email: e.target.value,
+                    })
+                  }
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Telefone
+                </label>
+                <input
+                  type="tel"
+                  value={customerDetails.phone}
+                  onChange={(e) =>
+                    setCustomerDetails({
+                      ...customerDetails,
+                      phone: e.target.value,
+                    })
+                  }
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Endereço
+                </label>
+                <input
+                  type="text"
+                  value={customerDetails.address}
+                  onChange={(e) =>
+                    setCustomerDetails({
+                      ...customerDetails,
+                      address: e.target.value,
+                    })
+                  }
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Cidade
+                  </label>
+                  <input
+                    type="text"
+                    value={customerDetails.city}
+                    onChange={(e) =>
+                      setCustomerDetails({
+                        ...customerDetails,
+                        city: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Estado
+                  </label>
+                  <input
+                    type="text"
+                    value={customerDetails.state}
+                    onChange={(e) =>
+                      setCustomerDetails({
+                        ...customerDetails,
+                        state: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  CEP
+                </label>
+                <input
+                  type="text"
+                  value={customerDetails.zipCode}
+                  onChange={(e) =>
+                    setCustomerDetails({
+                      ...customerDetails,
+                      zipCode: e.target.value,
+                    })
+                  }
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => setCheckoutStep("shipping")}
+              className="w-full bg-gray-900 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition"
+            >
+              Continuar para Entrega
+            </button>
+          </div>
+        );
+
+      case "shipping":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold">Método de Entrega</h3>
+            <div className="space-y-4">
+              {shippingMethods.map((method) => (
+                <div
+                  key={method.id}
+                  className={`p-4 border rounded-lg cursor-pointer ${
+                    selectedShipping === method.id
+                      ? "border-gray-900 bg-gray-50"
+                      : "border-gray-200"
+                  }`}
+                  onClick={() => setSelectedShipping(method.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">{method.name}</h4>
+                      <p className="text-sm text-gray-500">
+                        {method.estimatedDays}
+                      </p>
+                    </div>
+                    <div className="text-lg font-semibold">
+                      ${method.price.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setCheckoutStep("payment")}
+              className="w-full bg-gray-900 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition"
+            >
+              Continuar para Pagamento
+            </button>
+          </div>
+        );
+
+      case "payment":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold">Forma de Pagamento</h3>
+            <div className="space-y-4">
+              {paymentMethods.map((method) => (
+                <div
+                  key={method.id}
+                  className={`p-4 border rounded-lg cursor-pointer ${
+                    selectedPayment === method.id
+                      ? "border-gray-900 bg-gray-50"
+                      : "border-gray-200"
+                  }`}
+                  onClick={() => setSelectedPayment(method.id)}
+                >
+                  <div className="flex items-center space-x-3">
+                    {method.icon}
+                    <span className="font-medium">{method.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {selectedPayment === "credit" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Número do Cartão
+                  </label>
+                  <input
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                    placeholder="1234 5678 9012 3456"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Validade
+                    </label>
+                    <input
+                      type="text"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                      placeholder="MM/AA"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      CVV
+                    </label>
+                    <input
+                      type="text"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                      placeholder="123"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Parcelas
+                  </label>
+                  <select
+                    value={installments}
+                    onChange={(e) => setInstallments(Number(e.target.value))}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                  >
+                    {[...Array(12)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        {i + 1}x de R$ {(total / (i + 1)).toFixed(2)}
+                        {i === 0 ? " (sem juros)" : ` (com juros)`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setCheckoutStep("confirmation")}
+              className="w-full bg-gray-900 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition"
+            >
+              Finalizar Compra
+            </button>
+          </div>
+        );
+
+      case "confirmation":
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+              <h3 className="text-2xl font-semibold mb-2">
+                Pedido Confirmado!
+              </h3>
+              <p className="text-gray-600">
+                Obrigado pela sua compra. Você receberá um email com os detalhes
+                do pedido.
+              </p>
+            </div>
+            <div className="border-t pt-6">
+              <h4 className="font-semibold mb-4">Resumo do Pedido</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Frete:</span>
+                  <span>${shippingCost.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Total:</span>
+                  <span>${total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setIsCartOpen(false);
+                setCartItems([]);
+                setCheckoutStep("cart");
+              }}
+              className="w-full bg-gray-900 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition"
+            >
+              Voltar para a Loja
+            </button>
+          </div>
+        );
+
+      default: // cart
+        return (
+          <>
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6">
+              {cartItems.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Seu carrinho está vazio</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {cartItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center space-x-4 py-4 border-b"
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="h-20 w-20 object-cover rounded"
+                      />
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {item.name}
+                        </h3>
+                        <p className="text-sm text-gray-500">${item.price}</p>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <button
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity - 1)
+                            }
+                            className="p-1 rounded-full hover:bg-gray-100"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="text-gray-600">{item.quantity}</span>
+                          <button
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity + 1)
+                            }
+                            className="p-1 rounded-full hover:bg-gray-100"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeFromCart(item.id)}
+                        className="text-gray-400 hover:text-red-500"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {cartItems.length > 0 && (
+              <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
+                <div className="flex justify-between text-base font-medium text-gray-900">
+                  <p>Subtotal</p>
+                  <p>${subtotal.toFixed(2)}</p>
+                </div>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Frete calculado no checkout.
+                </p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => setCheckoutStep("details")}
+                    className="w-full bg-gray-900 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition"
+                  >
+                    Iniciar Checkout
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -189,182 +662,137 @@ function App() {
         )}
       </nav>
 
-      {/* Product Details Modal */}
-      {selectedProduct && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 transition-opacity"
-              onClick={() => setSelectedProduct(null)}
-            >
-              <div className="absolute inset-0 bg-black opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
-            &#8203;
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-2xl leading-6 font-bold text-gray-900 mb-4">
-                        {selectedProduct.name}
-                      </h3>
-                      <button
-                        onClick={() => setSelectedProduct(null)}
-                        className="text-gray-400 hover:text-gray-500"
-                      >
-                        <X className="h-6 w-6" />
-                      </button>
-                    </div>
-
-                    <div className="mt-2 space-y-4">
-                      <div className="aspect-w-16 aspect-h-9">
-                        <img
-                          src={selectedProduct.image}
-                          alt={selectedProduct.name}
-                          className="w-full h-[300px] object-cover rounded-lg"
-                        />
-                      </div>
-
-                      <div className="mt-4">
-                        <p className="text-gray-600 text-lg leading-relaxed">
-                          {selectedProduct.description}
-                        </p>
-                      </div>
-
-                      <div className="mt-6 flex items-center justify-between">
-                        <span className="text-3xl font-bold text-gray-900">
-                          ${selectedProduct.price}
-                        </span>
-                        <button
-                          onClick={() => {
-                            addToCart(selectedProduct);
-                            setSelectedProduct(null);
-                          }}
-                          className="bg-gray-900 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition"
-                        >
-                          Add to Cart
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Shopping Cart Modal */}
+      {/* Shopping Cart/Checkout Modal */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div
             className="absolute inset-0 bg-black bg-opacity-50"
-            onClick={() => setIsCartOpen(false)}
+            onClick={() => {
+              if (checkoutStep === "cart") {
+                setIsCartOpen(false);
+              }
+            }}
           />
           <div className="absolute inset-y-0 right-0 max-w-full flex">
             <div className="relative w-screen max-w-md">
               <div className="h-full flex flex-col bg-white shadow-xl">
                 <div className="flex items-center justify-between px-4 py-6 sm:px-6">
                   <h2 className="text-lg font-medium text-gray-900">
-                    Shopping Cart
+                    {checkoutStep === "cart"
+                      ? "Carrinho"
+                      : checkoutStep === "details"
+                      ? "Checkout - Dados Pessoais"
+                      : checkoutStep === "shipping"
+                      ? "Checkout - Entrega"
+                      : checkoutStep === "payment"
+                      ? "Checkout - Pagamento"
+                      : "Pedido Confirmado"}
                   </h2>
-                  <button
-                    type="button"
-                    className="text-gray-400 hover:text-gray-500"
-                    onClick={() => setIsCartOpen(false)}
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-4 sm:px-6">
-                  {cartItems.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">Your cart is empty</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {cartItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center space-x-4 py-4 border-b"
-                        >
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="h-20 w-20 object-cover rounded"
-                          />
-                          <div className="flex-1">
-                            <h3 className="text-sm font-medium text-gray-900">
-                              {item.name}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              ${item.price}
-                            </p>
-                            <div className="flex items-center space-x-2 mt-2">
-                              <button
-                                onClick={() =>
-                                  updateQuantity(item.id, item.quantity - 1)
-                                }
-                                className="p-1 rounded-full hover:bg-gray-100"
-                              >
-                                <Minus className="h-4 w-4" />
-                              </button>
-                              <span className="text-gray-600">
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() =>
-                                  updateQuantity(item.id, item.quantity + 1)
-                                }
-                                className="p-1 rounded-full hover:bg-gray-100"
-                              >
-                                <Plus className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                  {checkoutStep === "cart" && (
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-500"
+                      onClick={() => setIsCartOpen(false)}
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
                   )}
+                  {checkoutStep !== "cart" &&
+                    checkoutStep !== "confirmation" && (
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-gray-500"
+                        onClick={() =>
+                          setCheckoutStep(
+                            checkoutStep === "payment"
+                              ? "shipping"
+                              : checkoutStep === "shipping"
+                              ? "details"
+                              : "cart"
+                          )
+                        }
+                      >
+                        Voltar
+                      </button>
+                    )}
                 </div>
 
-                {cartItems.length > 0 && (
-                  <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
-                    <div className="flex justify-between text-base font-medium text-gray-900">
-                      <p>Subtotal</p>
-                      <p>${cartTotal.toFixed(2)}</p>
-                    </div>
-                    <p className="mt-0.5 text-sm text-gray-500">
-                      Shipping and taxes calculated at checkout.
-                    </p>
-                    <div className="mt-6">
-                      <button
-                        className="w-full bg-gray-900 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition"
-                        onClick={() => {
-                          // Implement checkout logic here
-                          alert(
-                            "Checkout functionality will be implemented soon!"
-                          );
-                        }}
-                      >
-                        Checkout
-                      </button>
-                    </div>
+                <div className="flex-1 overflow-y-auto">
+                  <div className="px-4 py-6 sm:px-6">
+                    {renderCheckoutStep()}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Chatbot */}
+      <div className="fixed bottom-4 right-4 z-40">
+        {!isChatOpen ? (
+          <button
+            onClick={() => setIsChatOpen(true)}
+            className="bg-gray-900 text-white p-4 rounded-full shadow-lg hover:bg-gray-800 transition"
+          >
+            <MessageCircle className="h-6 w-6" />
+          </button>
+        ) : (
+          <div className="bg-white rounded-lg shadow-xl w-80">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-semibold">Atendimento</h3>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="h-96 overflow-y-auto p-4 space-y-4">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`${
+                    msg.sender === "user"
+                      ? "ml-auto bg-gray-900 text-white"
+                      : "mr-auto bg-gray-100 text-gray-900"
+                  } rounded-lg p-3 max-w-[80%]`}
+                >
+                  {msg.text}
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const input = e.currentTarget.elements.namedItem(
+                    "message"
+                  ) as HTMLInputElement;
+                  if (input.value.trim()) {
+                    handleChatSubmit(input.value);
+                    input.value = "";
+                  }
+                }}
+                className="flex space-x-2"
+              >
+                <input
+                  type="text"
+                  name="message"
+                  placeholder="Digite sua mensagem..."
+                  className="flex-1 rounded-full border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                />
+                <button
+                  type="submit"
+                  className="bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition"
+                >
+                  Enviar
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Hero Section */}
       <section id="home" className="pt-16">
@@ -403,8 +831,7 @@ function App() {
             {products.map((product) => (
               <div
                 key={product.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform transition-transform hover:scale-105"
-                onClick={() => setSelectedProduct(product)}
+                className="bg-white rounded-lg shadow-md overflow-hidden"
               >
                 <img
                   src={product.image}
@@ -413,16 +840,11 @@ function App() {
                 />
                 <div className="p-6">
                   <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
-                  <p className="text-gray-600 mb-4">
-                    {product.description.substring(0, 100)}...
-                  </p>
+                  <p className="text-gray-600 mb-4">{product.description}</p>
                   <div className="flex justify-between items-center">
                     <span className="text-2xl font-bold">${product.price}</span>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product);
-                      }}
+                      onClick={() => addToCart(product)}
                       className="bg-gray-900 text-white px-6 py-2 rounded-full hover:bg-gray-800 transition"
                     >
                       Add to Cart
